@@ -1,0 +1,62 @@
+version: '3.8'
+services:
+  # PostgreSQL для 1С
+  postgresql:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: 1c_test_db
+      POSTGRES_USER: 1c_user
+      POSTGRES_PASSWORD: StrongPassword123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: >
+      postgres -c max_connections=200
+               -c shared_buffers=4GB
+               -c work_mem=64MB
+
+  # Сервер 1С:Предприятие (образ с демо)
+  ones-server:
+    image: 1c/server:8.3.21
+    depends_on:
+      - postgresql
+    ports:
+      - "1541:1541"
+      - "1540:1540"
+    volumes:
+      - ./config:/etc/1C
+      - ./reports:/var/opt/1C/reports
+      - ./logs:/var/log/1C
+    environment:
+      ONE_C_SERVER_DB_HOST: postgresql
+      ONE_C_SERVER_DB_PORT: 5432
+      ONE_C_SERVER_DB_NAME: 1c_test_db
+      ONE_C_SERVER_DB_USER: 1c_user
+      ONE_C_SERVER_DB_PASSWORD: StrongPassword123
+
+  # Веб-сервер для HTTP-сервисов
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./web:/usr/share/nginx/html
+    depends_on:
+      - ones-server
+
+  # Админка базы данных
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@test.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgresql
+
+volumes:
+  postgres_data:
