@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = 'registry.example.com'
+        PROJECT_NAME = '1c-optimization'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://gitlab.com/your-project/1c-optimization.git'
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        -v $(pwd):/app \
+                        1c-test-runner:latest \
+                        /app/scripts/run-tests.sh
+                '''
+            }
+        }
+        
+        stage('Static Analysis') {
+            steps {
+                sh '''
+                    # Проверка синтаксиса BSL
+                    python3 scripts/bsl_linter.py src/
+                    
+                    # Проверка SQL запросов
+                    python3 scripts/sql_analyzer.py src/
+                '''
+            }
+        }
+        
+        stage('Build Docker') {
+            steps {
+                sh '''
+                    docker build -t ${DOCKER_REGISTRY}/${PROJECT_NAME}:${BUILD_NUMBER} .
+                    docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}:${BUILD_NUMBER}
+                '''
+            }
+        }
+        
+        stage('Deploy to Test') {
+            steps {
+                sh '''
+                    kubectl set image deployment/1c-test \
+                        1c-server=${DOCKER_REGISTRY}/${PROJECT_NAME}:${BUILD_NUMBER}
+                    kubectl rollout status deployment/1c-test
+                '''
+            }
+        }
+        
+        stage('Integration Tests') {
+            steps {
+                sh '''
+                    # Запуск интеграционных тестов
+                    curl -X POST http://test.1c-project/api/tests/run
+                    sleep 30
+                    curl http://test.1c-project/api/tests/results | jq .
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Очистка
+            sh 'docker system prune -f'
+        }
+        success {
+            // Уведомление в Telegram/Slack
+            sh 'scripts/notify.sh "Build #${BUILD_NUMBER} успешно завершен"'
+        }
+        failure {
+            sh 'scripts/notify.sh "Build #${BUILD_NUMBER} завершен с ошибкой"'
+        }
+    }
+}
