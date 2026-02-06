@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration xmlns="http://v8.1c.ru/8.2/configuration">
+  <MetaDataObject name="Номенклатура" uuid="some-uuid">
+    <Properties>
+      <Property name="Имя">Номенклатура</Property>
+      <Property name="Синоним">Номенклатура</Property>
+      <Property name="Комментарий">Справочник товаров и услуг</Property>
+    </Properties>
+    <Attributes>
+      <Attribute name="Код" type="String" length="10">
+        <Properties>
+          <Property name="Имя">Код</Property>
+        </Properties>
+      </Attribute>
+      <Attribute name="Наименование" type="String" length="150">
+        <Properties>
+          <Property name="Имя">Наименование</Property>
+        </Properties>
+      </Attribute>
+    </Attributes>
+  </MetaDataObject>
+</Configuration>
